@@ -14,8 +14,6 @@ class NodeNetwork {
         this.container = container;
         this.initializeVisNetwork();
         this.initEventListeners();
-        //this.recalculateHealthStyle();
-        this.redraw();
         console.log("NodeNetwork constructed")
     }
 
@@ -164,26 +162,19 @@ class NodeNetwork {
         });
     }
 
-    redraw() {
-        this.network.body.emitter.emit('_dataChanged');
-        this.network.redraw();
-    }
-
-    health(nodeId, health) {
-        this.nodesDataSet.updateOnly({id: nodeId, color: { background: "green", highlight: { background: "green" }}})
-        console.log('changed dataset');
-        // redraw??
+    colorNode(nodeId, color) {
+        this.nodesDataSet.updateOnly({id: nodeId, color: { background: color, highlight: { background: color }}});
     }
     healthy(listOfNodeIds) {
+        var self = this;
         listOfNodeIds.forEach(n => {
-            this.nodesDataSet.updateOnly({id: n, color: { background: "green", highlight: { background: "green" }}})
+            self.colorNode(n, "green");
         })
     }
     unhealthy(listOfNodeIds) {
         listOfNodeIds.forEach(n => {
-            this.nodesDataSet.updateOnly({id: n, color: { background: "red", highlight: { background: "red" }}})
+            self.colorNode(n, "red");
         })
     }
-
 
 }
