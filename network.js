@@ -174,6 +174,16 @@ class NodeNetwork {
         console.log('changed dataset');
         // redraw??
     }
+    healthy(listOfNodeIds) {
+        listOfNodeIds.forEach(n => {
+            this.nodesDataSet.updateOnly({id: n, color: { background: "green", highlight: { background: "green" }}})
+        })
+    }
+    unhealthy(listOfNodeIds) {
+        listOfNodeIds.forEach(n => {
+            this.nodesDataSet.updateOnly({id: n, color: { background: "red", highlight: { background: "red" }}})
+        })
+    }
 
 
 }

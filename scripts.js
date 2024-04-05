@@ -4,10 +4,15 @@ var nodeNetwork = null
 function outage() {
     // shopping cart down:
     const outId = 504;
-    const outIds = analyzer.adj(outId);
-    console.log(outIds);
-    nodeNetwork.health(504, true);
-    console.log('health changed');
+    var outIds = analyzer.affectedNodes(outId);
+    const affected = [outId, ...outIds];
+    nodeNetwork.unhealthy(affected);
+}
+function backNormal() {
+    const outId = 504;
+    var outIds = analyzer.affectedNodes(outId);
+    const affected = [outId, ...outIds];
+    nodeNetwork.healthy(affected);
 }
 
 // initiate

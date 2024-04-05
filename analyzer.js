@@ -7,6 +7,8 @@ class Analyzer {
     jsgaToDataTranslation = new Map()
     jsgaGraph = null // js-graph-algorithms instance
 
+    graphlibGraph = null
+
     nodes = []
     nodeIdsInTopologicalOrder = []
     edges = []
@@ -27,6 +29,8 @@ class Analyzer {
 
         this.jsgaGraph = this.createJsgaGraph();
         this.nodeIdsInTopologicalOrder = this.calculateTopologicalOrder();
+
+        this.graphlibGraph = this.createGraphlibGraph()
         
         // some static data
         this.nodes.forEach(n => {
@@ -70,6 +74,21 @@ class Analyzer {
             jsgaGraph.addEdge(jsgaFrom, jsgaTo);
         })
         return jsgaGraph;
+    }
+
+    createGraphlibGraph() {
+        var g = new graphlib.Graph();
+
+        this.nodes.forEach(n => {
+            g.setNode(n.id.toString());
+        });
+
+        // build js-graph-algorithm graph
+        
+        this.edges.forEach(e => {
+            g.setEdge(e.from.toString(), e.to.toString());
+        })
+        return g;
     }
 
     children(nodeId) {
@@ -123,10 +142,12 @@ class Analyzer {
         return count;
     }
 
-    adj(nodeId) {
-        var jsgaNodeId = this.dataToJsgaTranslation.get(nodeId);
-        var jsgaAdjNodeIds = this.jsgaGraph.adj(jsgaNodeId);
-        return jsgaAdjNodeIds.map(n => (this.jsgaToDataTranslation.get(n)));
+    /**
+     * Returns all directyl and indirectly referenced nodes.
+     */
+    affectedNodes(nodeId) {
+        var affectedNodesString = this.graphlibGraph.predecessors(nodeId.toString());
+        return affectedNodesString.map(n => (parseInt(n)));
     }
 
 }
