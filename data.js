@@ -21,9 +21,6 @@ var nodes = [
     { id: 509, name: "customer-data\nservice", type: "service" },
     { id: 510, name: "foreign-article\nservice", type: "service", parent: 1001 },
 
-];
-
-var parentNodes = [
     // for parent nodes it is important that the higher the level the higher the ID needs to be.
 
      // these are the composite nodes for the features
@@ -33,7 +30,7 @@ var parentNodes = [
     { id: 901, name: "shopping", type: "feature" },
 
     // these are composite nodes for services
-    { id: 1001, name: "articles", type: "service"},
+    { id: 1001, name: "articles", type: "service" },
     
 ]
 

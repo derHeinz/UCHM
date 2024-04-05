@@ -1,54 +1,16 @@
-
-
-function nodesHealth(arrayOfNodes) {
-    arrayOfNodes.forEach(e => {
-        e.health = 1;
-    });
-}
-
-function analyse(arrayOfAllNodes, arrayOfEdges) {
-    // for each node calculate the amount of children (inlcuding grandchildren and thelike) -> as a base for the color
-    var sortedArrayOfAllNodes = arrayOfAllNodes.sort((a,b) => {
-        if (a.id > b.id) {
-            return 1;
-        } else if (a.id < b.id) {
-            return -1;
-        }
-        return 0;
-    })
-
-    sortedArrayOfAllNodes.forEach(n => {
-        var edges = arrayOfEdges.filter((e) => (e.from === n.id))
-        var edgeEndNodes = edges.map((e) => {
-            return findAnyNode(e.to)
-        })
-        edgeEndNodes.forEach(een => {
-            if (een.payload.children) {
-                een.payload.children = een.payload.children + 1;
-            } else {
-                een.payload.children = 1;
-            }
-        })
-    });
-}
+var analyzer = null
+var nodeNetwork = null
 
 function outage() {
     // shopping cart down:
-    outageNodeid = 504
-
-    return nodes.filter((n) => (n.id === nodeid))[0]
+    const outId = 504;
+    const outIds = analyzer.adj(outId);
+    console.log(outIds);
+    nodeNetwork.health(504, true);
+    console.log('health changed');
 }
 
-function init() {
-    // initiate
-    var container = document.getElementById("mynetwork");
-    nodesHealth(nodes);
-    nodesHealth(parentNodes);
-    n = new NodeNetwork(nodes, parentNodes, edges, container);
-}
-
-
-
-
-//analyse(nodes, edges);
-init();
+// initiate
+analyzer = new Analyzer(nodes, edges);
+console.log(nodes);
+nodeNetwork = new NodeNetwork(nodes, edges, document.getElementById("mynetwork"));

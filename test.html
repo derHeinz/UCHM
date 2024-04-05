@@ -4,13 +4,19 @@
     <title>UC health monitor</title>
 
     <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <script type="text/javascript" src="data.js" ></script>
+    <script type="text/javascript" src="analyzer.js" ></script>
+    <script type="text/javascript" src="network.js" ></script>
+    <script type="text/javascript" src="jsgraphs.min.js" ></script>
+    
+    <script type="text/javascript" src="colors.js" ></script>
 
     <style type="text/css">
       #mynetwork {
         width: 1200px;
         height: 300px;
         border: 1px solid lightgray;
-        background-color: black;
+        background-color: lightgray;
       }
       p {
         max-width: 600px;
@@ -30,11 +36,6 @@
         <input type="button" onclick="outage()" value="outage" />
       </span>
     </div>
-    <script type="text/javascript" src="data.js" ></script>
-    <script type="text/javascript" src="network.js" ></script>
-    <script type="text/javascript" src="jsgraphs.min.js" ></script>
     <script type="text/javascript" src="scripts.js" ></script>
-    <script type="text/javascript" src="colors.js" ></script>
-
   </body>
 </html>

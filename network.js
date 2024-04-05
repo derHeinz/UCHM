@@ -1,126 +1,54 @@
-
-
-
 class NodeNetwork {
 
-    dataToJsgaTranslation = new Map()
-    jsgaGraph = null // js-graph-algorithms instance
     network = null // vis network instance
 
     nodes = []
-    parentNodes = []
     edges = []
 
+    nodesDataSet = null // contains all vis js nodes, also those that are currently not displayed.   
     container = null
 
-    constructor(nodes, parentNodes, edges, container) {
+    constructor(nodes, edges, container) {
         this.nodes = nodes;
-        this.parentNodes = parentNodes;
-        this.allNodes = nodes.concat(parentNodes);
         this.edges = edges;
         this.container = container;
-        this.createJsgaGraph();
         this.initializeVisNetwork();
         this.initEventListeners();
+        //this.recalculateHealthStyle();
+        this.redraw();
         console.log("NodeNetwork constructed")
     }
 
-    createJsgaGraph() {
-        // assign the js-graph-algorithms id to them nodes and build mapping
-        var count = 0
-        this.nodes.forEach(n => {
-            n.jsgaId = count;
-            this.dataToJsgaTranslation.set(n.id, n.jsgaId);
-            count++;
-        });
-        // TODO im not clear whether this is a good idea!
-        this.parentNodes.forEach(n => {
-            n.jsgaId = count;
-            this.dataToJsgaTranslation.set(n.id, n.jsgaId);
-            count++;
-        })
-
-        // build js-graph-algorithm graph
-        this.jsgaGraph = new jsgraphs.DiGraph(count);
-        this.edges.forEach(e => {
-            var jsgaFrom = this.dataToJsgaTranslation.get(e.from);
-            var jsgaTo = this.dataToJsgaTranslation.get(e.to);
-            this.jsgaGraph.addEdge(jsgaFrom, jsgaTo);
-        })
-    }
-
-    // defines styling for nodes
-    styleNodes(arrayOfNodes) {
-        arrayOfNodes.forEach(e => {
-            if (e.payload.type) {
-                e.group = e.payload.type + "s";
-            }
-        });
-    }
-
-    styleEdges(arrayOfEdges) {
-        arrayOfEdges.forEach(e => {
-            e.color = "black";
-            e.width = 1;
-        });
-    }
-
-    incomingEdges(nodeId) {
-        var count = 0;
-        this.edges.forEach(e => {
-            if (e.to === nodeId) {
-                count++;
-            }
-        });
-        return count;
-    }
-    outgoingEdges(nodeId) {
-        var count = 0;
-        this.edges.forEach(e => {
-            if (e.from === nodeId) {
-                count++;
-            }
-        });
-        return count;
-    }
-    numberOfChildren(nodeId) {
-        var count = 0;
-        // for now only the direct children
-        this.nodes.forEach(n => {
-            if (n.parent == nodeId) {
-                count++;
-            }
-        });
-        return count;
-    }
-
     toVisJSNode(nodeData) {
-        var children = this.numberOfChildren(nodeData.id);
-        var labelContent = nodeData.name;
-        if (children) {
-            labelContent = labelContent + '\nChildren: (' + children + ')';
+        var labelContent = '(' + nodeData.id + ')\n' + nodeData.name;
+        if (nodeData.children.length) {
+            var headline = nodeData.type === 'feature'?'Features':'Services';
+            labelContent = labelContent + '\n' + headline + ': (' + nodeData.children.length + ')';
+        }
+
+        // adding group information for styling
+        var groupContent = 'none';
+        if (nodeData.type) {
+            groupContent = nodeData.type + "s"; // features or services
         }
         
         return {
             id: nodeData.id,
             payload: nodeData,
+            group: groupContent,
             label: labelContent
-        }
+        };
     }
 
     initializeVisNetwork() {
 
         var self = this;
-        var visJsNodes = this.nodes.map(n => self.toVisJSNode(n));
-        console.log(visJsNodes);
-        var visJsParentNodes = this.parentNodes.map(n => self.toVisJSNode(n));
+
+        var visJsNodes = this.nodes.filter(n => {return !n.isParent}).map(n => self.toVisJSNode(n));
+        this.nodesDataSet = new vis.DataSet(visJsNodes)
         
-        // add styling based information to the data
-        this.styleNodes(visJsNodes);
-        this.styleNodes(visJsParentNodes);
-        //this.styleEdges(this.edges);
         var data = {
-            nodes: visJsNodes,
+            nodes: this.nodesDataSet,
             edges: this.edges,
         };
         var svg ='<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400">'
@@ -139,12 +67,12 @@ class NodeNetwork {
             },
             groups: {
                 features: {
-                    color: { background: "lightgrey", border: "yellow" },
+                    color: { border: "yellow", highlight: { border: "yellow" } },
                     shape: "ellipse",
-                    image: url
+                    //image: url
                 },
                 services: {
-                    color: { background: "lightgrey", border: "blue" },
+                    color: { border: "blue", highlighted: { border: "blue" } },
                     shape: "box"
                 }
             },
@@ -188,15 +116,12 @@ class NodeNetwork {
                 return
             }
 
-            console.log(nodeData);
-
             var parentNodeId = nodeData.parent
             if (!parentNodeId) {
                 console.log('hit a node with no parent');
                 return
             }
-            console.log('clustering all nodes with parent: ' + parentNodeId)
-            var parentNodeProperties = parentNodes.filter((n) => (n.id === parentNodeId))[0]
+            var parentNodeProperties = self.findNodeById(parentNodeId);
             if (!parentNodeProperties) {
                 console.log('could not find the parent node for ' + parentNodeId);
                 return
@@ -212,12 +137,9 @@ class NodeNetwork {
             }
             self.network.cluster(clusterOptions);
         });
-        console.log('event listeners installed');
     }
-
     findNodeByCoordinates(x_hit, y_hit) {
         var nodeid = this.network.getNodeAt({x: x_hit, y: y_hit})
-        console.log('hit node ' + nodeid)
     
         if (!nodeid) {
             console.log('failed to hit a node')
@@ -226,25 +148,31 @@ class NodeNetwork {
         return this.findNodeById(nodeid);
     }
     findNodeById(id) {
-        var simpleNode = this.nodes.filter((n) => (n.id === id))[0]
-        if (simpleNode) {
-            return simpleNode;
-        }
-        var parentNode = this.parentNodes.filter((n) => (n.id === id))[0]
-        if (parentNode) {
-            return parentNode;
-        }
-        return undefined;
+        return this.nodes.filter((n) => (n.id === id))[0];
+    }
+    findVisJsNodeById(id) {
+        return this.visJsNodes.filter((n) => (n.id === id))[0];
     }
 
     recalculateHealthStyle() {
-        this.allNodes.forEach(n => {
+        this.visJsNodes.forEach(n => {
             if (n.payload.health) {
-                n.color = { background: "green"};
+                n.color = { background: "green", highlight: { background: "green" }};
             } else {
-                n.color = { background: "red"};
+                n.color = { background: "red", highlight: { background: "red" }};
             }
         });
+    }
+
+    redraw() {
+        this.network.body.emitter.emit('_dataChanged');
+        this.network.redraw();
+    }
+
+    health(nodeId, health) {
+        this.nodesDataSet.updateOnly({id: nodeId, color: { background: "green", highlight: { background: "green" }}})
+        console.log('changed dataset');
+        // redraw??
     }
 
 
