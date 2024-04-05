@@ -3,127 +3,102 @@
  */
 class Analyzer {
 
-    dataToJsgaTranslation = new Map()
-    jsgaToDataTranslation = new Map()
-    jsgaGraph = null // js-graph-algorithms instance
+    dependencyGraph = null;
+    parentalGraph = null;
 
-    graphlibGraph = null
-
-    nodes = []
-    nodeIdsInTopologicalOrder = []
-    edges = []
+    nodes = [];
+    edges = [];
 
     constructor(nodes, edges) {
         this.nodes = nodes;
         this.edges = edges;
-        this.analyze();
+        this._analyze();
         console.log("Nodes analyzed")
     }
 
-    findNodeById(nodeId) {
+    _findNodeById(nodeId) {
         return this.nodes.filter((n) => (n.id === nodeId))[0];
     }
 
-    analyze() {
-        var self = this;
+    _analyze() {
+        const self = this;
 
-        this.jsgaGraph = this.createJsgaGraph();
-        this.nodeIdsInTopologicalOrder = this.calculateTopologicalOrder();
-
-        this.graphlibGraph = this.createGraphlibGraph()
+        this.dependencyGraph = this._createDependencyGraph();
+        this.parentalGraph = this._createParentalGraph();
         
         // some static data
         this.nodes.forEach(n => {
-            n.outgoingEdgesCount = self.outgoingEdges(n.id);
-            n.incomingEdgesCount = self.incomingEdges(n.id);
+            n.outgoingEdgesCount = self._outgoingEdges(n.id);
+            n.incomingEdgesCount = self._incomingEdges(n.id);
         })
         // children & parent info
         this.nodes.forEach(n => {
-            n.children = self.children(n.id);
+            n.children = self._children(n.id);
         })
         this.nodes.forEach(n => {
             n.isParent = n.children.length?true:false;
         })
         this.nodes.forEach(n => {
-            n.childrenLeaves = self.childrenLeaves(n.id);
+            n.childrenLeaves = self._childrenLeaves(n.id);
         })
     }
 
-    calculateTopologicalOrder() {
-        var self = this;
-        var ts = new jsgraphs.TopologicalSort(this.jsgaGraph);
-        var order = ts.order();
-        return order.map(e => (self.jsgaToDataTranslation.get(e)));
-    }
-
-    createJsgaGraph() {
-        // assign the js-graph-algorithms id to them nodes and build mapping
-        var count = 0
-        this.nodes.forEach(n => {
-            n.jsgaId = count;
-            this.dataToJsgaTranslation.set(n.id, n.jsgaId);
-            this.jsgaToDataTranslation.set(n.jsgaId, n.id);
-            count++;
-        });
-
-        // build js-graph-algorithm graph
-        var jsgaGraph = new jsgraphs.DiGraph(count);
-        this.edges.forEach(e => {
-            var jsgaFrom = this.dataToJsgaTranslation.get(e.from);
-            var jsgaTo = this.dataToJsgaTranslation.get(e.to);
-            jsgaGraph.addEdge(jsgaFrom, jsgaTo);
-        })
-        return jsgaGraph;
-    }
-
-    createGraphlibGraph() {
-        var g = new graphlib.Graph();
+    _createDependencyGraph() {
+        var g = new graphlib.Graph({ directed: true, compound: false, multigraph: false });
 
         this.nodes.forEach(n => {
             g.setNode(n.id.toString());
         });
-
-        // build js-graph-algorithm graph
-        
+        // dependecy node edges 
         this.edges.forEach(e => {
             g.setEdge(e.from.toString(), e.to.toString());
         })
         return g;
     }
+    _createParentalGraph() {
+        var g = new graphlib.Graph({ directed: true, compound: false, multigraph: false });
 
-    children(nodeId) {
-        var self = this;
-        var nodeIdsInOrderCopy = JSON.parse(JSON.stringify(this.nodeIdsInTopologicalOrder));
-
-        var listOfAncesterNodeIds = [];
-        listOfAncesterNodeIds.push(nodeId);
-
-        // after this all children are in the list of ancestors
-        nodeIdsInOrderCopy.forEach(nId => {
-            var node = self.findNodeById(nId);
-
-            for (let i = 0; i < listOfAncesterNodeIds.length; i++) {
-                var ancestorId = listOfAncesterNodeIds[i];
-                if (node.parent === ancestorId) { // someone who's parent you are
-                    listOfAncesterNodeIds.push(node.id);
-                    break;
-                }
+        this.nodes.forEach(n => {
+            g.setNode(n.id.toString());
+        });
+        // parental information transformed into edges
+        this.nodes.forEach(n => {
+            if (n.parent) {
+                g.setEdge(n.id.toString(), n.parent.toString());
             }
         });
-        listOfAncesterNodeIds.shift()
-        return listOfAncesterNodeIds;
+
+        console.log(g.nodes());
+        console.log(g.edges());
+
+        return g;
     }
 
-    childrenLeaves(nodeId) {
+    allPredecessors(nodeId, graph) {
+        const self = this;
+
+        const directPredecessors = graph.predecessors(nodeId.toString());
+        const allPredecessors = [...directPredecessors];
+        directPredecessors.forEach(c => {
+            allPredecessors.push(...self._children(c));
+        })
+        return allPredecessors.map(n => (parseInt(n)));
+    }
+
+    _children(nodeId) {
+        return this.allPredecessors(nodeId, this.parentalGraph);
+    }
+
+    _childrenLeaves(nodeId) {
         var self = this;
-        var node = this.findNodeById(nodeId);
+        var node = this._findNodeById(nodeId);
         return node.children.filter(cnId => {
-            var cn = self.findNodeById(cnId);
+            var cn = self._findNodeById(cnId);
             return !cn.isParent;
         });
     }
 
-    incomingEdges(nodeId) {
+    _incomingEdges(nodeId) {
         var count = 0;
         this.edges.forEach(e => {
             if (e.to === nodeId) {
@@ -132,7 +107,7 @@ class Analyzer {
         });
         return count;
     }
-    outgoingEdges(nodeId) {
+    _outgoingEdges(nodeId) {
         var count = 0;
         this.edges.forEach(e => {
             if (e.from === nodeId) {
@@ -143,11 +118,11 @@ class Analyzer {
     }
 
     /**
-     * Returns all directyl and indirectly referenced nodes.
+     * Returns all directly and indirectly referenced nodes.
+     * TODO: set this as dependecyPredecessors property on each node.
      */
     affectedNodes(nodeId) {
-        var affectedNodesString = this.graphlibGraph.predecessors(nodeId.toString());
-        return affectedNodesString.map(n => (parseInt(n)));
+        return this.allPredecessors(nodeId, this.dependencyGraph);
     }
 
 }

@@ -12,12 +12,12 @@ class NodeNetwork {
         this.nodes = nodes;
         this.edges = edges;
         this.container = container;
-        this.initializeVisNetwork();
-        this.initEventListeners();
+        this._initializeVisNetwork();
+        this._initEventListeners();
         console.log("NodeNetwork constructed")
     }
 
-    toVisJSNode(nodeData) {
+    _toVisJSNode(nodeData) {
         var labelContent = '(' + nodeData.id + ')\n' + nodeData.name;
         if (nodeData.children.length) {
             var headline = nodeData.type === 'feature'?'Features':'Services';
@@ -38,11 +38,11 @@ class NodeNetwork {
         };
     }
 
-    initializeVisNetwork() {
+    _initializeVisNetwork() {
 
         var self = this;
 
-        var visJsNodes = this.nodes.filter(n => {return !n.isParent}).map(n => self.toVisJSNode(n));
+        var visJsNodes = this.nodes.filter(n => {return !n.isParent}).map(n => self._toVisJSNode(n));
         this.nodesDataSet = new vis.DataSet(visJsNodes)
         
         var data = {
@@ -89,7 +89,7 @@ class NodeNetwork {
         };
         this.network = new vis.Network(this.container, data, options);
     }
-    initEventListeners() {
+    _initEventListeners() {
         self = this
         this.network.on("doubleClick", function (params) {
             if (params.nodes.length == 1) {
@@ -107,7 +107,7 @@ class NodeNetwork {
             var x_hit = params.pointer.DOM.x
             var y_hit = params.pointer.DOM.y
            
-            var nodeData = self.findNodeByCoordinates(x_hit, y_hit)
+            var nodeData = self._findNodeByCoordinates(x_hit, y_hit)
             
             if (!nodeData) {
                 console.log('could not locate node by coordinates.');
@@ -119,12 +119,12 @@ class NodeNetwork {
                 console.log('hit a node with no parent');
                 return
             }
-            var parentNodeProperties = self.findNodeById(parentNodeId);
+            var parentNodeProperties = self._findNodeById(parentNodeId);
             if (!parentNodeProperties) {
                 console.log('could not find the parent node for ' + parentNodeId);
                 return
             }
-            var visJsParentNodeProperties = self.toVisJSNode(parentNodeProperties);
+            var visJsParentNodeProperties = self._toVisJSNode(parentNodeProperties);
         
             var clusterOptions = {
                 joinCondition: function (childOptions) {
@@ -136,44 +136,37 @@ class NodeNetwork {
             self.network.cluster(clusterOptions);
         });
     }
-    findNodeByCoordinates(x_hit, y_hit) {
+    _findNodeByCoordinates(x_hit, y_hit) {
         var nodeid = this.network.getNodeAt({x: x_hit, y: y_hit})
     
         if (!nodeid) {
             console.log('failed to hit a node')
             return
         }
-        return this.findNodeById(nodeid);
+        return this._findNodeById(nodeid);
     }
-    findNodeById(id) {
+    _findNodeById(id) {
         return this.nodes.filter((n) => (n.id === id))[0];
     }
-    findVisJsNodeById(id) {
-        return this.visJsNodes.filter((n) => (n.id === id))[0];
-    }
 
-    recalculateHealthStyle() {
-        this.visJsNodes.forEach(n => {
-            if (n.payload.health) {
-                n.color = { background: "green", highlight: { background: "green" }};
-            } else {
-                n.color = { background: "red", highlight: { background: "red" }};
-            }
-        });
-    }
-
-    colorNode(nodeId, color) {
+    _colorNode(nodeId, color) {
         this.nodesDataSet.updateOnly({id: nodeId, color: { background: color, highlight: { background: color }}});
     }
+    _toExistingNodeIds(nodeIds) {
+        return nodeIds.filter(nId => {
+            return self.nodesDataSet.get(nId);
+        });
+    }
     healthy(listOfNodeIds) {
-        var self = this;
-        listOfNodeIds.forEach(n => {
-            self.colorNode(n, "green");
+        const self = this;
+        this._toExistingNodeIds(listOfNodeIds).forEach(n => {
+            self._colorNode(n, "green");
         })
     }
     unhealthy(listOfNodeIds) {
-        listOfNodeIds.forEach(n => {
-            self.colorNode(n, "red");
+        const self = this;
+        this._toExistingNodeIds(listOfNodeIds).forEach(n => {
+            self._colorNode(n, "red");
         })
     }
 
