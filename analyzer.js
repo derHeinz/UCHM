@@ -68,25 +68,32 @@ class Analyzer {
             }
         });
 
-        console.log(g.nodes());
-        console.log(g.edges());
-
         return g;
     }
 
-    allPredecessors(nodeId, graph) {
+    _allPredecessors(nodeId, graph) {
         const self = this;
 
-        const directPredecessors = graph.predecessors(nodeId.toString());
-        const allPredecessors = [...directPredecessors];
-        directPredecessors.forEach(c => {
-            allPredecessors.push(...self._children(c));
+        const direct = graph.predecessors(nodeId.toString());
+        const all = [...direct];
+        direct.forEach(c => {
+            all.push(...self._allPredecessors(c, graph));
         })
-        return allPredecessors.map(n => (parseInt(n)));
+        return all.map(n => (parseInt(n)));
+    }
+    _allSuccessors(nodeId, graph) {
+        const self = this;
+
+        const direct = graph.successors(nodeId.toString());
+        const all = [...direct];
+        direct.forEach(c => {
+            all.push(...self._allSuccessors(c, graph));
+        })
+        return all.map(n => (parseInt(n)));
     }
 
     _children(nodeId) {
-        return this.allPredecessors(nodeId, this.parentalGraph);
+        return this._allPredecessors(nodeId, this.parentalGraph);
     }
 
     _childrenLeaves(nodeId) {
@@ -118,11 +125,19 @@ class Analyzer {
     }
 
     /**
-     * Returns all directly and indirectly referenced nodes.
-     * TODO: set this as dependecyPredecessors property on each node.
+     * Returns all directly and indirectly referenced nodes. Including parents!
      */
     affectedNodes(nodeId) {
-        return this.allPredecessors(nodeId, this.dependencyGraph);
+        const dependencyPredecessors = this._allPredecessors(nodeId, this.dependencyGraph);
+        var allParental = this._allSuccessors(nodeId, this.parentalGraph);
+        dependencyPredecessors.forEach(n => {
+            allParental.push(...this._allSuccessors(n, this.parentalGraph));
+        });
+ 
+        allParental = [...new Set(allParental)]; // unique list
+        const result = dependencyPredecessors.concat(allParental);
+        //console.log("Affected nodes for node " + nodeId + " are " + result);
+        return result;
     }
 
 }

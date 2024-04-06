@@ -44,9 +44,6 @@ class HealthController {
     }
 
     changeState(nodeId, healthyness) {
-        //const affectedNodeIds = analyzer.affectedNodes(nodeId);
-        //const potentiallyChangingNodeIds = [nodeId, ...affectedNodeIds];
-
         if (!healthyness && this.unhealthyNodeIds.includes(nodeId)) {
             // no real change, was unhealthy before
             return;

@@ -42,7 +42,6 @@ class NodeNetwork {
     }
 
     _initializeVisNetwork() {
-
         var self = this;
 
         var visJsNodes = this.nodes.filter(n => {return !n.isParent}).map(n => self._toVisJSNode(n));
@@ -130,6 +129,12 @@ class NodeNetwork {
                 return
             }
             var visJsParentNodeProperties = self._toVisJSNode(parentNodeProperties);
+            // mixin the current state's properties
+            if (self.unhealthyNodeIds.includes(parentNodeId)) {
+                visJsParentNodeProperties = {...visJsParentNodeProperties, ...self._propertiesUnhealthy()};
+            } else if (self.healthyNodeIds.includes(parentNodeId)) {
+                visJsParentNodeProperties = {...visJsParentNodeProperties, ...self._propertiesHealthy()};
+            }
         
             var clusterOptions = {
                 joinCondition: function (childOptions) {
@@ -157,6 +162,9 @@ class NodeNetwork {
         properties['id'] = nodeId;
         this.nodesDataSet.updateOnly(properties);
     }
+    _updateClusterNodeState(nodeId, properties) {
+        this.network.updateClusteredNode(nodeId, properties);
+    }
     _propertiesHealthy() {
         return {
             color: { background: "#58d68d", highlight: { background: "#58d68d" }}
@@ -168,8 +176,19 @@ class NodeNetwork {
         };
     }
     _toExistingNodeIds(nodeIds) {
+        const self = this;
         return nodeIds.filter(nId => {
             return self.nodesDataSet.get(nId);
+        });
+    }
+    _toExistingClusterIds(nodeIds) {
+        const self = this;
+        return nodeIds.filter(nId => {
+            const path = self.network.findNode(nId);
+            if (!path.length) {
+                return false;
+            }
+            return self.network.isCluster(nId);
         });
     }
     setStates(listOfHealthyNodeIds, listOfUnhealthyNodeIds) {
@@ -177,12 +196,26 @@ class NodeNetwork {
         this.healthyNodeIds = listOfHealthyNodeIds;
         this.unhealthyNodeIds = listOfUnhealthyNodeIds;
 
-        this._toExistingNodeIds(listOfHealthyNodeIds).forEach(n => {
+        // healthy nodes
+        const existingHealthyNodeIds = this._toExistingNodeIds(listOfHealthyNodeIds);
+        existingHealthyNodeIds.forEach(n => {
             self._updateNodeState(n, self._propertiesHealthy());
         });
-        this._toExistingNodeIds(listOfUnhealthyNodeIds).forEach(n => {
+        // healthy cluster nodes
+        const existingHealthyClusterIds = this._toExistingClusterIds(listOfHealthyNodeIds);
+        existingHealthyClusterIds.forEach(n => {
+            self._updateClusterNodeState(n, self._propertiesHealthy());
+        });
+        // unhealthy nodes
+        const existingUnhealthyNodeIds = this._toExistingNodeIds(listOfUnhealthyNodeIds);
+        existingUnhealthyNodeIds.forEach(n => {
             self._updateNodeState(n, self._propertiesUnhealthy());
-        })
+        });
+        // unhealthy cluster nodes
+        const existingUnhealthyClusterIds = this._toExistingClusterIds(listOfUnhealthyNodeIds);
+        existingUnhealthyClusterIds.forEach(n => {
+            self._updateClusterNodeState(n, self._propertiesUnhealthy());
+        });
     }
     
 }
