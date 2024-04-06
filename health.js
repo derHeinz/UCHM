@@ -13,12 +13,12 @@ class HealthController {
     }
 
     initialState() {
-        this.unhealthyNodeIds = []
+        this.unhealthyNodeIds = [];
         // calculate the "rest"
         const allHealthyNodeIds = this._calculateHealthyNodes([]);
 
-        // set all healthy
-        nodeNetwork.healthy(allHealthyNodeIds);
+        // set all
+        this.nodeNetwork.setStates(allHealthyNodeIds, this.unhealthyNodeIds);
     }
 
     _calculateHealthyNodes(allUnhealthyNodeIds) {
@@ -70,7 +70,6 @@ class HealthController {
         const allHealthyNodeIds = this._calculateHealthyNodes(allUnhealthyNodeIds);
 
         // set all
-        nodeNetwork.unhealthy(allUnhealthyNodeIds);
-        nodeNetwork.healthy(allHealthyNodeIds);
+        this.nodeNetwork.setStates(allHealthyNodeIds, allUnhealthyNodeIds);
     } 
 }

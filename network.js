@@ -1,12 +1,15 @@
 class NodeNetwork {
 
-    network = null // vis network instance
+    network = null; // vis network instance
 
-    nodes = []
-    edges = []
+    nodes = [];
+    edges = [];
 
-    nodesDataSet = null // contains all vis js nodes, also those that are currently not displayed.   
-    container = null
+    nodesDataSet = null; // contains all vis js nodes, also those that are currently not displayed.   
+    container = null;
+
+    healthyNodeIds = [];
+    unhealthyNodeIds = [];
 
     constructor(nodes, edges, container) {
         this.nodes = nodes;
@@ -65,12 +68,14 @@ class NodeNetwork {
             },
             groups: {
                 features: {
-                    color: { border: "yellow", highlight: { border: "yellow" } },
+                    color: { border: "#f4d03f", highlight: { border: "#f4d03f" } },
+                    borderWidth: 4,
                     shape: "ellipse",
                     //image: url
                 },
                 services: {
-                    color: { border: "blue", highlighted: { border: "blue" } },
+                    color: { border: "#5499c7", highlighted: { border: "#5499c7" } },
+                    borderWidth: 4,
                     shape: "box"
                 }
             },
@@ -148,26 +153,36 @@ class NodeNetwork {
     _findNodeById(id) {
         return this.nodes.filter((n) => (n.id === id))[0];
     }
-
-    _colorNode(nodeId, color) {
-        this.nodesDataSet.updateOnly({id: nodeId, color: { background: color, highlight: { background: color }}});
+    _updateNodeState(nodeId, properties) {
+        properties['id'] = nodeId;
+        this.nodesDataSet.updateOnly(properties);
+    }
+    _propertiesHealthy() {
+        return {
+            color: { background: "#58d68d", highlight: { background: "#58d68d" }}
+        };
+    }
+    _propertiesUnhealthy() {
+        return {
+            color: { background: "#cd6155", highlight: { background: "#cd6155" }}
+        };
     }
     _toExistingNodeIds(nodeIds) {
         return nodeIds.filter(nId => {
             return self.nodesDataSet.get(nId);
         });
     }
-    healthy(listOfNodeIds) {
+    setStates(listOfHealthyNodeIds, listOfUnhealthyNodeIds) {
         const self = this;
-        this._toExistingNodeIds(listOfNodeIds).forEach(n => {
-            self._colorNode(n, "green");
-        })
-    }
-    unhealthy(listOfNodeIds) {
-        const self = this;
-        this._toExistingNodeIds(listOfNodeIds).forEach(n => {
-            self._colorNode(n, "red");
-        })
-    }
+        this.healthyNodeIds = listOfHealthyNodeIds;
+        this.unhealthyNodeIds = listOfUnhealthyNodeIds;
 
+        this._toExistingNodeIds(listOfHealthyNodeIds).forEach(n => {
+            self._updateNodeState(n, self._propertiesHealthy());
+        });
+        this._toExistingNodeIds(listOfUnhealthyNodeIds).forEach(n => {
+            self._updateNodeState(n, self._propertiesUnhealthy());
+        })
+    }
+    
 }
