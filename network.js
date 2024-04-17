@@ -8,6 +8,8 @@ class NodeNetwork {
     nodesDataSet = null; // contains all vis js nodes, also those that are currently not displayed.   
     container = null;
 
+    highlightActive = false; // whether or not a single node is selected.
+
     healthyNodeIds = [];
     unhealthyNodeIds = [];
 
@@ -15,6 +17,7 @@ class NodeNetwork {
         this.nodes = nodes;
         this.edges = edges;
         this.container = container;
+
         this._initializeVisNetwork();
         this._initEventListeners();
         console.log("NodeNetwork constructed")
@@ -41,6 +44,29 @@ class NodeNetwork {
         };
     }
 
+    _getParentNodeVisJsProperties(parentNodeId) {
+        var parentNodeProperties = self._findNodeById(parentNodeId);
+        if (!parentNodeProperties) {
+            return undefined;
+        }
+        var visJsParentNodeProperties = self._toVisJSNode(parentNodeProperties);
+        // mixin the current state's properties
+        if (self.unhealthyNodeIds.includes(parentNodeId)) {
+            return {...visJsParentNodeProperties, ...self._propertiesUnhealthy()};
+        } else if (self.healthyNodeIds.includes(parentNodeId)) {
+            return {...visJsParentNodeProperties, ...self._propertiesHealthy()};
+        }
+        return undefined;
+    }
+
+    _highlightNode(nodeData) {
+        nodeData.color.border = "grey";
+    };
+
+    _unhighlightNode(nodeData) {
+        nodeData.color.border = "blue";
+    }
+
     _initializeVisNetwork() {
         var self = this;
 
@@ -51,8 +77,9 @@ class NodeNetwork {
             nodes: this.nodesDataSet,
             edges: this.edges,
         };
-        var svg ='<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400">'
-        + '<circle cx="100" cy="100" r="100" stroke="black" stroke-width="5" fill="red" />'
+        var svg ='<svg xmlns="http://www.w3.org/2000/svg" width="2000" height="400">'
+        + '<circle cx="100" cy="500" r="400" stroke="black" stroke-width="5" fill="red" />'
+        + '<text x="20" y="35" class="small">My</text>'
         + '</svg>';
 
         var url = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
@@ -67,17 +94,16 @@ class NodeNetwork {
             },
             groups: {
                 features: {
-                    color: { border: "#f4d03f", highlight: { border: "#f4d03f" } },
                     borderWidth: 4,
                     shape: "ellipse",
                     //image: url
                 },
                 services: {
-                    color: { border: "#5499c7", highlighted: { border: "#5499c7" } },
                     borderWidth: 4,
                     shape: "box"
                 }
             },
+            
             layout: {
                 hierarchical: {
                     sortMethod: "directed",
@@ -85,6 +111,7 @@ class NodeNetwork {
                     direction: 'UD'
                 },
             },
+            
             physics: {
                 hierarchicalRepulsion: {
                     avoidOverlap: 8,
@@ -95,6 +122,8 @@ class NodeNetwork {
     }
     _initEventListeners() {
         self = this
+
+        // cluster on double click
         this.network.on("doubleClick", function (params) {
             if (params.nodes.length == 1) {
                 if (self.network.isCluster(params.nodes[0]) == true) {
@@ -102,11 +131,87 @@ class NodeNetwork {
                 }
             }
         });
+
+        // highlight neighbourhood on click
+        this.network.on("click", function (params) {
+            // get a JSON object
+            var simpleNodes = self.nodesDataSet.get({ returnType: "Object" });
+            var simpleNodeIds = Object.keys(simpleNodes);
+
+            var visibleClusterNodeIds = self.nodes
+                .filter((n) => (n.isParent)) // only parents
+                .map((n) => (n.id)) // their id's
+                .filter((nId) => {return self.network.findNode(nId).length}) // only visible
+                .filter((nId) => {return self.network.isCluster(nId)}); // only clusters
+            var visibleClusterNodes = {}
+            visibleClusterNodeIds.forEach((nId) => {
+                visibleClusterNodes[nId] = self._getParentNodeVisJsProperties(nId);
+            })
+
+            var allNodeIds = simpleNodeIds.concat(visibleClusterNodeIds) // add cluster nodes
+
+            function getPropertiesForNodeId(nodeId) {
+                if (visibleClusterNodeIds.includes(nodeId)) {
+                    return visibleClusterNodes[nodeId];
+                } else {
+                    return simpleNodes[nodeId];
+                }
+                return undefined;
+            }
+
+            var i;
+            // if something is selected:
+            if (params.nodes.length > 0) {
+                self.highlightActive = true;
+                
+                var selectedNodeId = params.nodes[0];
+        
+                //  all nodes as hard to read.
+                for (i = 0; i < allNodeIds.length; i++) {
+                    var nodeId = allNodeIds[i];
+                    var nodeProps = getPropertiesForNodeId(nodeId);
+                    self._highlightNode(nodeProps);
+                }
+                var connectedNodes = self.network.getConnectedNodes(selectedNodeId);
+                // all first degree nodes get their own color and their label back
+                for (i = 0; i < connectedNodes.length; i++) {
+                    var nodeProps = getPropertiesForNodeId(connectedNodes[i]);
+                    self._unhighlightNode(nodeProps);
+                }
+    
+                // the main node gets its own color and its label back.
+                var nodeProps = getPropertiesForNodeId(selectedNodeId);
+                self._unhighlightNode(nodeProps);
+            } else if (self.highlightActive === true) {
+                // reset all nodes
+                for (i = 0; i < allNodeIds.length; i++) {
+                    var nodeId = allNodeIds[i];
+                    var nodeProps = getPropertiesForNodeId(nodeId);
+                    self._unhighlightNode(nodeProps);
+                }
+                self.highlightActive = false;
+            }
+    
+            // update simpleNodes
+            var updateArray = [];
+            for (nodeId in simpleNodes) {
+                if (simpleNodes.hasOwnProperty(nodeId)) {
+                    updateArray.push(simpleNodes[nodeId]);
+                }
+            }
+            self.nodesDataSet.update(updateArray);
+            // update clusterNodes
+            for (nodeId in visibleClusterNodes) {
+                self.network.updateClusteredNode(nodeId, visibleClusterNodes[nodeId]);
+            }
+
+        });
         
         // deactivate default contextmenu
         this.container.addEventListener('contextmenu', function(e) {
             e.preventDefault();
         }, false);
+        // uncluster on right mouse click
         this.network.on("oncontext", function (params) {
             var x_hit = params.pointer.DOM.x
             var y_hit = params.pointer.DOM.y
@@ -123,17 +228,10 @@ class NodeNetwork {
                 console.log('hit a node with no parent');
                 return
             }
-            var parentNodeProperties = self._findNodeById(parentNodeId);
-            if (!parentNodeProperties) {
+            var visJsParentNodeProperties = self._getParentNodeVisJsProperties(parentNodeId);
+            if (!visJsParentNodeProperties) {
                 console.log('could not find the parent node for ' + parentNodeId);
                 return
-            }
-            var visJsParentNodeProperties = self._toVisJSNode(parentNodeProperties);
-            // mixin the current state's properties
-            if (self.unhealthyNodeIds.includes(parentNodeId)) {
-                visJsParentNodeProperties = {...visJsParentNodeProperties, ...self._propertiesUnhealthy()};
-            } else if (self.healthyNodeIds.includes(parentNodeId)) {
-                visJsParentNodeProperties = {...visJsParentNodeProperties, ...self._propertiesHealthy()};
             }
         
             var clusterOptions = {
