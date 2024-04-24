@@ -103,23 +103,111 @@ class NodeNetwork {
                     shape: "box"
                 }
             },
-            
             layout: {
                 hierarchical: {
+                    enabled: true,
                     sortMethod: "directed",
                     shakeTowards: "roots",
-                    direction: 'UD'
+                    direction: 'UD',
+                    nodeSpacing: 320,
+                    treeSpacing: 4000,
+                    levelSeparation: 300,
                 },
             },
-            
+            interaction: {
+                hover: true
+            },
             physics: {
-                hierarchicalRepulsion: {
-                    avoidOverlap: 8,
-                },
+                enabled: false,
+            //    hierarchicalRepulsion: {
+            //        avoidOverlap: 8,
+           //         nodeDistance: 140
+            //    },
+            //    stabilization: {
+            //        enabled: true,
+            //        iterations: 10
+            //    }
+            //    barnesHut: {
+            //        springConstant: 0,
+            //        avoidOverlap: 0.8
+            //    }
             },
         };
         this.network = new vis.Network(this.container, data, options);
     }
+
+    _showNodesNeighborhood(selectedNodeId) {
+        // get a JSON object
+        self.network.storePositions();
+        var simpleNodes = self.nodesDataSet.get({ returnType: "Object" });
+        var simpleNodeIds = Object.keys(simpleNodes);
+
+        var visibleClusterNodeIds = self.nodes
+            .filter((n) => (n.isParent)) // only parents
+            .map((n) => (n.id)) // their id's
+            .filter((nId) => {return self.network.findNode(nId).length}) // only visible
+            .filter((nId) => {return self.network.isCluster(nId)}); // only clusters
+        var visibleClusterNodes = {}
+        visibleClusterNodeIds.forEach((nId) => {
+            visibleClusterNodes[nId] = self._getParentNodeVisJsProperties(nId);
+        })
+
+        var allNodeIds = simpleNodeIds.concat(visibleClusterNodeIds) // add cluster nodes
+
+        function getPropertiesForNodeId(nodeId) {
+            if (visibleClusterNodeIds.includes(nodeId)) {
+                return visibleClusterNodes[nodeId];
+            } else {
+                return simpleNodes[nodeId];
+            }
+            return undefined;
+        }
+
+        var i;
+        // if something is selected:
+        if (selectedNodeId) {
+            self.highlightActive = true;
+
+            //  all nodes as hard to read.
+            for (i = 0; i < allNodeIds.length; i++) {
+                var nodeId = allNodeIds[i];
+                var nodeProps = getPropertiesForNodeId(nodeId);
+                self._highlightNode(nodeProps);
+            }
+            var connectedNodes = self.network.getConnectedNodes(selectedNodeId);
+            // all first degree nodes get their own color and their label back
+            for (i = 0; i < connectedNodes.length; i++) {
+                var nodeProps = getPropertiesForNodeId(connectedNodes[i]);
+                self._unhighlightNode(nodeProps);
+            }
+
+            // the main node gets its own color and its label back.
+            var nodeProps = getPropertiesForNodeId(selectedNodeId);
+            self._unhighlightNode(nodeProps);
+        } else if (self.highlightActive === true) {
+            // reset all nodes
+            for (i = 0; i < allNodeIds.length; i++) {
+                var nodeId = allNodeIds[i];
+                var nodeProps = getPropertiesForNodeId(nodeId);
+                self._unhighlightNode(nodeProps);
+            }
+            self.highlightActive = false;
+        }
+
+        // update simpleNodes
+        var updateArray = [];
+        for (nodeId in simpleNodes) {
+            if (simpleNodes.hasOwnProperty(nodeId)) {
+                updateArray.push(simpleNodes[nodeId]);
+            }
+        }
+        self.nodesDataSet.update(updateArray);
+        // update clusterNodes
+        for (nodeId in visibleClusterNodes) {
+            self.network.updateClusteredNode(nodeId, visibleClusterNodes[nodeId]);
+        }
+    }
+
     _initEventListeners() {
         self = this
 
@@ -132,79 +220,12 @@ class NodeNetwork {
             }
         });
 
-        // highlight neighbourhood on click
-        this.network.on("click", function (params) {
-            // get a JSON object
-            var simpleNodes = self.nodesDataSet.get({ returnType: "Object" });
-            var simpleNodeIds = Object.keys(simpleNodes);
-
-            var visibleClusterNodeIds = self.nodes
-                .filter((n) => (n.isParent)) // only parents
-                .map((n) => (n.id)) // their id's
-                .filter((nId) => {return self.network.findNode(nId).length}) // only visible
-                .filter((nId) => {return self.network.isCluster(nId)}); // only clusters
-            var visibleClusterNodes = {}
-            visibleClusterNodeIds.forEach((nId) => {
-                visibleClusterNodes[nId] = self._getParentNodeVisJsProperties(nId);
-            })
-
-            var allNodeIds = simpleNodeIds.concat(visibleClusterNodeIds) // add cluster nodes
-
-            function getPropertiesForNodeId(nodeId) {
-                if (visibleClusterNodeIds.includes(nodeId)) {
-                    return visibleClusterNodes[nodeId];
-                } else {
-                    return simpleNodes[nodeId];
-                }
-                return undefined;
-            }
-
-            var i;
-            // if something is selected:
-            if (params.nodes.length > 0) {
-                self.highlightActive = true;
-                
-                var selectedNodeId = params.nodes[0];
-        
-                //  all nodes as hard to read.
-                for (i = 0; i < allNodeIds.length; i++) {
-                    var nodeId = allNodeIds[i];
-                    var nodeProps = getPropertiesForNodeId(nodeId);
-                    self._highlightNode(nodeProps);
-                }
-                var connectedNodes = self.network.getConnectedNodes(selectedNodeId);
-                // all first degree nodes get their own color and their label back
-                for (i = 0; i < connectedNodes.length; i++) {
-                    var nodeProps = getPropertiesForNodeId(connectedNodes[i]);
-                    self._unhighlightNode(nodeProps);
-                }
-    
-                // the main node gets its own color and its label back.
-                var nodeProps = getPropertiesForNodeId(selectedNodeId);
-                self._unhighlightNode(nodeProps);
-            } else if (self.highlightActive === true) {
-                // reset all nodes
-                for (i = 0; i < allNodeIds.length; i++) {
-                    var nodeId = allNodeIds[i];
-                    var nodeProps = getPropertiesForNodeId(nodeId);
-                    self._unhighlightNode(nodeProps);
-                }
-                self.highlightActive = false;
-            }
-    
-            // update simpleNodes
-            var updateArray = [];
-            for (nodeId in simpleNodes) {
-                if (simpleNodes.hasOwnProperty(nodeId)) {
-                    updateArray.push(simpleNodes[nodeId]);
-                }
-            }
-            self.nodesDataSet.update(updateArray);
-            // update clusterNodes
-            for (nodeId in visibleClusterNodes) {
-                self.network.updateClusteredNode(nodeId, visibleClusterNodes[nodeId]);
-            }
-
+        // highlight neighbourhood on hover
+        this.network.on("hoverNode", function (params) {
+            self._showNodesNeighborhood(params.node);
+        });
+        this.network.on("blurNode", function (params) {
+            self._showNodesNeighborhood(undefined);
         });
         
         // deactivate default contextmenu
@@ -242,6 +263,7 @@ class NodeNetwork {
                 
             }
             self.network.cluster(clusterOptions);
+            self._showNodesNeighborhood(parentNodeId);
         });
     }
     _findNodeByCoordinates(x_hit, y_hit) {
