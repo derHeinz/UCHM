@@ -136,7 +136,7 @@ class Analyzer {
  
         allParental = [...new Set(allParental)]; // unique list
         const result = dependencyPredecessors.concat(allParental);
-        //console.log("Affected nodes for node " + nodeId + " are " + result);
+        console.log("Affected nodes for node " + nodeId + " are " + result);
         return result;
     }
 

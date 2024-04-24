@@ -35,8 +35,14 @@
       <span id="interactions">
         <br />
         <input type="button" onclick="backNormal()" value="normal" />
-        <input type="text" id="nodeId">
+        <input type="text" id="nodeId" size="10">
         <input type="button" onclick="outage()" value="outage" />
+        <span>|</span>
+        <input type="text" id="searchText" size="20">
+        <input type="button" onclick="hide('service')" value="filter by service" />
+        <input type="button" onclick="hide('feature')" value="filter by feature" />
+        <input type="button" onclick="unhide()" value="unfilter" />
+        <span>|</span>
         
       </span>
     </div>

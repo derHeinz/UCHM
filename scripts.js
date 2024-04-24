@@ -18,6 +18,10 @@ function getNodeIdFromInput() {
     return parseInt(val);
 }
 
+function getTextFromTextInput() {
+    return document.getElementById("searchText").value;
+}
+
 function outage() {
     const nodeId = getNodeIdFromInput();
     healthController.changeState(nodeId, false);
@@ -25,6 +29,16 @@ function outage() {
 function backNormal() {
     const nodeId = getNodeIdFromInput();
     healthController.changeState(nodeId, true);
+}
+function hide(type) {
+    var txt = getTextFromTextInput();
+    var filteredNodeIds = nodes.filter(n => {
+        return n.type === type && n.name.includes(txt);
+    }).map(n => n.id);
+    nodeNetwork.filterNodesNeighborhood(filteredNodeIds);
+}
+function unhide() {
+    nodeNetwork.filterNodesNeighborhood(nodes.map(n => n.id));
 }
 
 init();

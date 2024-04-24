@@ -61,10 +61,18 @@ class NodeNetwork {
 
     _highlightNode(nodeData) {
         nodeData.color.border = "grey";
-    };
+    }
 
     _unhighlightNode(nodeData) {
         nodeData.color.border = "blue";
+    }
+
+    _filterNode(nodeData) {
+        nodeData.hidden = true;
+    }
+
+    _unfilterNode(nodeData) {
+        nodeData.hidden = false;
     }
 
     _initializeVisNetwork() {
@@ -136,7 +144,14 @@ class NodeNetwork {
         this.network = new vis.Network(this.container, data, options);
     }
 
-    _showNodesNeighborhood(selectedNodeId) {
+    showNodesNeighborhood(mainNodeIds) {
+        this._showNodesNeighborhood(mainNodeIds, self._highlightNode, self._unhighlightNode);
+    }
+    filterNodesNeighborhood(mainNodeIds) {
+        this._showNodesNeighborhood(mainNodeIds, self._filterNode, self._unfilterNode);
+    }
+
+    _showNodesNeighborhood(mainNodeIds, highlightFunction, unhilightFunction) {
         // get a JSON object
         self.network.storePositions();
         var simpleNodes = self.nodesDataSet.get({ returnType: "Object" });
@@ -164,32 +179,49 @@ class NodeNetwork {
         }
 
         var i;
+
+        // from the given ones filter those that are visible
+        var visibleMainNodeIds = undefined;
+        if (mainNodeIds && mainNodeIds.length > 0) {
+            visibleMainNodeIds = mainNodeIds.filter(nId => {
+                var nodeIdStr = nId.toString();
+                return allNodeIds.includes(nodeIdStr)
+            });
+            if (visibleMainNodeIds.length === 0) {
+                visibleMainNodeIds = undefined;
+            }
+        }
         // if something is selected:
-        if (selectedNodeId) {
+        if (visibleMainNodeIds) {
             self.highlightActive = true;
 
             //  all nodes as hard to read.
-            for (i = 0; i < allNodeIds.length; i++) {
-                var nodeId = allNodeIds[i];
-                var nodeProps = getPropertiesForNodeId(nodeId);
-                self._highlightNode(nodeProps);
-            }
-            var connectedNodes = self.network.getConnectedNodes(selectedNodeId);
+            allNodeIds.forEach(nId => {
+                var nodeProps = getPropertiesForNodeId(nId);
+                highlightFunction(nodeProps);
+            });
+            var connectedNodes = [];
+            visibleMainNodeIds.forEach(nId => {
+                connectedNodes.push(...self.network.getConnectedNodes(nId));
+            });
             // all first degree nodes get their own color and their label back
             for (i = 0; i < connectedNodes.length; i++) {
                 var nodeProps = getPropertiesForNodeId(connectedNodes[i]);
-                self._unhighlightNode(nodeProps);
+                unhilightFunction(nodeProps);
             }
 
-            // the main node gets its own color and its label back.
-            var nodeProps = getPropertiesForNodeId(selectedNodeId);
-            self._unhighlightNode(nodeProps);
+            // the main node(s) gets its own color
+            visibleMainNodeIds.forEach(nId => {
+                var nodeProps = getPropertiesForNodeId(nId);
+                unhilightFunction(nodeProps);
+            });
+            
         } else if (self.highlightActive === true) {
             // reset all nodes
             for (i = 0; i < allNodeIds.length; i++) {
                 var nodeId = allNodeIds[i];
                 var nodeProps = getPropertiesForNodeId(nodeId);
-                self._unhighlightNode(nodeProps);
+                unhilightFunction(nodeProps);
             }
             self.highlightActive = false;
         }
@@ -206,6 +238,7 @@ class NodeNetwork {
         for (nodeId in visibleClusterNodes) {
             self.network.updateClusteredNode(nodeId, visibleClusterNodes[nodeId]);
         }
+        self.network.redraw();
     }
 
     _initEventListeners() {
@@ -222,10 +255,10 @@ class NodeNetwork {
 
         // highlight neighbourhood on hover
         this.network.on("hoverNode", function (params) {
-            self._showNodesNeighborhood(params.node);
+            self.showNodesNeighborhood([params.node]);
         });
         this.network.on("blurNode", function (params) {
-            self._showNodesNeighborhood(undefined);
+            self.showNodesNeighborhood(undefined);
         });
         
         // deactivate default contextmenu
@@ -263,7 +296,7 @@ class NodeNetwork {
                 
             }
             self.network.cluster(clusterOptions);
-            self._showNodesNeighborhood(parentNodeId);
+            self.showNodesNeighborhood([parentNodeId]);
         });
     }
     _findNodeByCoordinates(x_hit, y_hit) {
