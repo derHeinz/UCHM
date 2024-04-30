@@ -155,7 +155,7 @@ class NodeNetwork {
         // get a JSON object
         self.network.storePositions();
         var simpleNodes = self.nodesDataSet.get({ returnType: "Object" });
-        var simpleNodeIds = Object.keys(simpleNodes);
+        var simpleNodeIds = Object.keys(simpleNodes).map(n=> parseInt(n));
 
         var visibleClusterNodeIds = self.nodes
             .filter((n) => (n.isParent)) // only parents
@@ -184,8 +184,7 @@ class NodeNetwork {
         var visibleMainNodeIds = undefined;
         if (mainNodeIds && mainNodeIds.length > 0) {
             visibleMainNodeIds = mainNodeIds.filter(nId => {
-                var nodeIdStr = nId.toString();
-                return allNodeIds.includes(nodeIdStr)
+                return allNodeIds.includes(nId)
             });
             if (visibleMainNodeIds.length === 0) {
                 visibleMainNodeIds = undefined;
